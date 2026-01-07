@@ -121,6 +121,17 @@
             <option value="customer">Cliente</option>
             <option value="cleaner">Proveedor</option>
           </select>
+          <!-- Campos extra para proveedores -->
+          <div id="providerExtraFields" class="hidden" style="margin-top: 1rem;">
+            <label for="regCompanyName">Nombre de la compañía:</label>
+            <input type="text" id="regCompanyName" />
+            <label for="regPhotoURL">URL de foto o logo:</label>
+            <input type="text" id="regPhotoURL" />
+            <label for="regPhone">Teléfono de contacto:</label>
+            <input type="text" id="regPhone" />
+            <label for="regAbout">Descripción de la compañía:</label>
+            <textarea id="regAbout" rows="3"></textarea>
+          </div>
           <button id="registerBtn">Registrarse</button>
           <p>
             ¿Ya tienes cuenta?
@@ -141,6 +152,31 @@
         <input type="date" id="bookingDate" />
         <label for="bookingTime">Hora:</label>
         <input type="time" id="bookingTime" />
+        <!-- Precio que el cliente desea pagar por el servicio -->
+        <label for="customerPrice">¿Cuánto estás dispuesto a pagar? ($):</label>
+        <input type="number" id="customerPrice" min="1" step="0.01" />
+        <!-- Detalles de la casa: habitaciones, baños, salas, cocinas y otros -->
+        <label>Detalles de la casa:</label>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.5rem;">
+          <div>
+            <label for="houseRooms">Habitaciones:</label>
+            <input type="number" id="houseRooms" min="0" value="0" />
+          </div>
+          <div>
+            <label for="houseBathrooms">Baños:</label>
+            <input type="number" id="houseBathrooms" min="0" value="0" />
+          </div>
+          <div>
+            <label for="houseLivingRooms">Salas de estar:</label>
+            <input type="number" id="houseLivingRooms" min="0" value="0" />
+          </div>
+          <div>
+            <label for="houseKitchens">Cocinas:</label>
+            <input type="number" id="houseKitchens" min="0" value="0" />
+          </div>
+        </div>
+        <label for="houseOther">Otros detalles (opcional):</label>
+        <textarea id="houseOther" rows="2"></textarea>
         <label for="referralInput">Código de referido (opcional):</label>
         <input type="text" id="referralInput" />
         <button id="bookBtn">Reservar</button>
@@ -153,7 +189,9 @@
               <th>Hora</th>
               <th>Estado</th>
               <th>Proveedor</th>
-              <th>Precio</th>
+              <th>Precio (final)</th>
+              <th>Precio cliente</th>
+              <th>Precio proveedor</th>
               <th>Pago</th>
             </tr>
           </thead>
@@ -172,12 +210,33 @@
               <th>Servicio</th>
               <th>Fecha</th>
               <th>Hora</th>
+              <th>Precio cliente</th>
+              <th>Detalles casa</th>
+              <th>Precio proveedor</th>
               <th>Estado</th>
-              <th>Acción</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody></tbody>
         </table>
+        <!-- Información de perfil del proveedor y enlace para compartir -->
+        <h3>Mi perfil</h3>
+        <div id="providerInfo" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;"></div>
+        <button id="editProfileBtn">Editar perfil</button>
+        <div id="editProfileForm" class="hidden" style="margin-top: 1rem;">
+          <label for="providerCompanyName">Nombre de la compañía:</label>
+          <input type="text" id="providerCompanyName" />
+          <label for="providerPhotoURL">URL de foto o logo:</label>
+          <input type="text" id="providerPhotoURL" />
+          <label for="providerPhone">Teléfono:</label>
+          <input type="text" id="providerPhone" />
+          <label for="providerAbout">Descripción:</label>
+          <textarea id="providerAbout" rows="3"></textarea>
+          <button id="saveProfileBtn">Guardar perfil</button>
+        </div>
+        <h3>Enlace para mis clientes</h3>
+        <p>Comparte este enlace para que tus clientes programen una cita contigo:</p>
+        <input type="text" id="providerLink" readonly style="width: 100%;" />
       </section>
 
       <!-- Sección para administrador -->
@@ -194,7 +253,9 @@
               <th>Hora</th>
               <th>Proveedor</th>
               <th>Estado</th>
-              <th>Precio</th>
+              <th>Precio (final)</th>
+              <th>Precio cliente</th>
+              <th>Precio proveedor</th>
               <th>Pago</th>
               <th>Asignar proveedor</th>
               <th>Acción de pago</th>

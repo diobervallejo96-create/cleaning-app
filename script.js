@@ -10,6 +10,19 @@ const services = [
 // Estado de la aplicación
 let currentUser = null;
 
+// Mostrar u ocultar campos adicionales según rol en el registro
+function toggleProviderFields() {
+  const role = document.getElementById('regRole').value;
+  const providerFields = document.getElementById('providerExtraFields');
+  if (providerFields) {
+    if (role === 'cleaner') {
+      providerFields.classList.remove('hidden');
+    } else {
+      providerFields.classList.add('hidden');
+    }
+  }
+}
+
 // Utilidades para localStorage
 function getUsers() {
   return JSON.parse(localStorage.getItem('users') || '[]');
@@ -66,7 +79,25 @@ function registerUser() {
   }
   // Asignar un código de referido único utilizando el nombre de usuario
   const referralCode = username;
-  users.push({ username, password, role, referralCode, discountCredits: 0 });
+  const newUser = {
+    username,
+    password,
+    role,
+    referralCode,
+    discountCredits: 0,
+  };
+  // Si el registro es para un proveedor, guardar datos de perfil
+  if (role === 'cleaner') {
+    const companyName = document.getElementById('regCompanyName').value.trim();
+    const photoURL = document.getElementById('regPhotoURL').value.trim();
+    const phone = document.getElementById('regPhone').value.trim();
+    const about = document.getElementById('regAbout').value.trim();
+    newUser.companyName = companyName;
+    newUser.photoURL = photoURL;
+    newUser.phone = phone;
+    newUser.about = about;
+  }
+  users.push(newUser);
   setUsers(users);
   alert('Registro exitoso. Ahora inicia sesión.');
   showLogin();
@@ -119,7 +150,7 @@ function showCustomerSection() {
   if (discountInfo) {
     const credits = currentUser.discountCredits || 0;
     if (credits > 0) {
-      discountInfo.textContent = `Tienes ${credits} descuento(s) del 10% para tu próxima cita.`;
+      discountInfo.textContent = `Tienes ${credits} cupón(es) de descuento del 30% que puedes aplicar en futuras reservas.`;
       discountInfo.classList.remove('hidden');
     } else {
       discountInfo.classList.add('hidden');
@@ -140,6 +171,14 @@ function createBooking() {
     alert('Selecciona fecha y hora');
     return;
   }
+  // Obtener oferta de precio del cliente y detalles de la casa
+  const customerPriceVal = parseFloat(document.getElementById('customerPrice').value || '0');
+  const rooms = parseInt(document.getElementById('houseRooms').value || '0');
+  const baths = parseInt(document.getElementById('houseBathrooms').value || '0');
+  const living = parseInt(document.getElementById('houseLivingRooms').value || '0');
+  const kitchens = parseInt(document.getElementById('houseKitchens').value || '0');
+  const otherDetails = (document.getElementById('houseOther').value || '').trim();
+
   const bookings = getBookings();
   const id = bookings.length > 0 ? Math.max(...bookings.map((b) => b.id)) + 1 : 1;
   // Asignar proveedor automáticamente (primero disponible) o null si ninguno
@@ -155,18 +194,17 @@ function createBooking() {
       return bookingsByProvider[curr.username] < bookingsByProvider[prev.username] ? curr : prev;
     }, providers[0]).username;
   }
-  // Calcular precio base del servicio
+  // Calcular precio base del servicio y aplicar descuento por cupón
   const service = services.find((s) => s.id === serviceId);
   let price = service ? service.price : 0;
   let discountApplied = 0;
-  // Aplicar descuento si el usuario tiene créditos
   let users = getUsers();
   const userIndex = users.findIndex((u) => u.username === currentUser.username);
   if (userIndex >= 0) {
     const user = users[userIndex];
     const credits = user.discountCredits || 0;
     if (credits > 0) {
-      discountApplied = 0.1; // 10% descuento
+      discountApplied = 0.3; // 30% descuento
       price = price - price * discountApplied;
       // Consumir un crédito
       user.discountCredits = credits - 1;
@@ -180,11 +218,11 @@ function createBooking() {
     const allUsers = getUsers();
     const refIndex = allUsers.findIndex((u) => u.referralCode === referralCodeEntered);
     if (refIndex >= 0) {
-      // Otorgar un crédito de descuento al referido
+      // Otorgar un crédito de descuento al usuario referido
       allUsers[refIndex].discountCredits = (allUsers[refIndex].discountCredits || 0) + 1;
       referralUsed = referralCodeEntered;
       setUsers(allUsers);
-      alert(`El usuario con código ${referralCodeEntered} ha ganado un descuento para su próxima cita.`);
+      alert(`El usuario con código ${referralCodeEntered} ha ganado un cupón de 30% de descuento para su próxima cita.`);
     }
   }
   bookings.push({
@@ -199,6 +237,15 @@ function createBooking() {
     price: price,
     discountApplied: discountApplied,
     referralUsed: referralUsed,
+    customerPrice: isNaN(customerPriceVal) ? null : customerPriceVal,
+    houseDetails: {
+      rooms: rooms,
+      bathrooms: baths,
+      livingRooms: living,
+      kitchens: kitchens,
+      other: otherDetails,
+    },
+    providerOffer: null,
   });
   setBookings(bookings);
   alert('Reserva creada');
@@ -220,7 +267,9 @@ function loadCustomerBookings() {
     const service = services.find((s) => s.id === b.serviceId);
     const row = document.createElement('tr');
     const priceDisplay = b.price !== undefined ? `$${b.price.toFixed(2)}` : '';
-    row.innerHTML = `\n      <td>${service ? service.name : ''}</td>\n      <td>${b.date}</td>\n      <td>${b.time}</td>\n      <td>${b.status}</td>\n      <td>${b.cleaner ? b.cleaner : 'No asignado'}</td>\n      <td>${priceDisplay}</td>\n      <td>${b.paymentStatus === 'pagado' ? 'Pagado' : 'Pendiente'}</td>\n    `;
+    const customerPriceDisplay = b.customerPrice !== undefined && b.customerPrice !== null ? `$${parseFloat(b.customerPrice).toFixed(2)}` : '';
+    const providerPriceDisplay = b.providerOffer !== undefined && b.providerOffer !== null ? `$${parseFloat(b.providerOffer).toFixed(2)}` : '';
+    row.innerHTML = `\n      <td>${service ? service.name : ''}</td>\n      <td>${b.date}</td>\n      <td>${b.time}</td>\n      <td>${b.status}</td>\n      <td>${b.cleaner ? b.cleaner : 'No asignado'}</td>\n      <td>${priceDisplay}</td>\n      <td>${customerPriceDisplay}</td>\n      <td>${providerPriceDisplay}</td>\n      <td>${b.paymentStatus === 'pagado' ? 'Pagado' : 'Pendiente'}</td>\n    `;
     tbody.appendChild(row);
   });
 }
@@ -228,6 +277,8 @@ function loadCustomerBookings() {
 // Mostrar sección de proveedor
 function showCleanerSection() {
   document.getElementById('cleanerSection').classList.remove('hidden');
+  // Cargar información de perfil y enlace
+  loadProviderInfo();
   loadCleanerBookings();
 }
 
@@ -240,19 +291,94 @@ function loadCleanerBookings() {
   bookings.forEach((b) => {
     const service = services.find((s) => s.id === b.serviceId);
     const row = document.createElement('tr');
-    const completeBtn = document.createElement('button');
-    completeBtn.textContent = 'Completar';
-    completeBtn.onclick = () => {
-      markBookingCompleted(b.id);
-    };
-    row.innerHTML = `\n      <td>${b.customer}</td>\n      <td>${service ? service.name : ''}</td>\n      <td>${b.date}</td>\n      <td>${b.time}</td>\n      <td>${b.status}</td>\n    `;
-    const actionCell = document.createElement('td');
-    if (b.status === 'pendiente') {
-      actionCell.appendChild(completeBtn);
+    const customerPriceDisplay = b.customerPrice !== undefined && b.customerPrice !== null ? `$${parseFloat(b.customerPrice).toFixed(2)}` : '';
+    const providerPriceDisplay = b.providerOffer !== undefined && b.providerOffer !== null ? `$${parseFloat(b.providerOffer).toFixed(2)}` : '';
+    // Crear celda con detalles de la casa
+    let houseSummary = '';
+    if (b.houseDetails) {
+      const parts = [];
+      if (b.houseDetails.rooms > 0) parts.push(b.houseDetails.rooms + ' hab.');
+      if (b.houseDetails.bathrooms > 0) parts.push(b.houseDetails.bathrooms + ' baño(s)');
+      if (b.houseDetails.livingRooms > 0) parts.push(b.houseDetails.livingRooms + ' sala(s)');
+      if (b.houseDetails.kitchens > 0) parts.push(b.houseDetails.kitchens + ' cocina(s)');
+      if (b.houseDetails.other && b.houseDetails.other.length > 0) parts.push(b.houseDetails.other);
+      houseSummary = parts.join(', ');
     }
-    row.appendChild(actionCell);
+    row.innerHTML = `\n      <td>${b.customer}</td>\n      <td>${service ? service.name : ''}</td>\n      <td>${b.date}</td>\n      <td>${b.time}</td>\n      <td>${customerPriceDisplay}</td>\n      <td>${houseSummary}</td>\n      <td>${providerPriceDisplay}</td>\n      <td>${b.status}</td>\n    `;
+    // Acciones: proponer precio y completar
+    const actionsCell = document.createElement('td');
+    if (b.status === 'pendiente') {
+      // input para oferta
+      const offerInput = document.createElement('input');
+      offerInput.type = 'number';
+      offerInput.min = '0';
+      offerInput.step = '0.01';
+      offerInput.placeholder = 'Propuesta $';
+      if (b.providerOffer !== undefined && b.providerOffer !== null) {
+        offerInput.value = b.providerOffer;
+      }
+      const proposeBtn = document.createElement('button');
+      proposeBtn.textContent = 'Proponer';
+      proposeBtn.onclick = () => {
+        const val = parseFloat(offerInput.value);
+        if (isNaN(val) || val <= 0) {
+          alert('Ingresa un precio válido');
+          return;
+        }
+        setProviderOffer(b.id, val);
+      };
+      const completeBtn = document.createElement('button');
+      completeBtn.textContent = 'Completar';
+      completeBtn.onclick = () => {
+        markBookingCompleted(b.id);
+      };
+      actionsCell.appendChild(offerInput);
+      actionsCell.appendChild(proposeBtn);
+      actionsCell.appendChild(completeBtn);
+    }
+    row.appendChild(actionsCell);
     tbody.appendChild(row);
   });
+}
+
+// Mostrar información del proveedor (foto, nombre de compañía, teléfono, descripción) y enlace personalizado
+function loadProviderInfo() {
+  const infoDiv = document.getElementById('providerInfo');
+  if (!infoDiv || !currentUser || currentUser.role !== 'cleaner') return;
+  infoDiv.innerHTML = '';
+  const user = currentUser;
+  // Crear imagen de perfil
+  const img = document.createElement('img');
+  img.src = user.photoURL ? user.photoURL : 'icon-192.png';
+  img.alt = 'Foto de proveedor';
+  img.style.width = '80px';
+  img.style.height = '80px';
+  img.style.objectFit = 'cover';
+  img.style.borderRadius = '50%';
+  // Crear contenedor de detalles
+  const detailsDiv = document.createElement('div');
+  const nameP = document.createElement('p');
+  nameP.textContent = user.companyName && user.companyName.length > 0 ? user.companyName : user.username;
+  nameP.style.fontWeight = 'bold';
+  detailsDiv.appendChild(nameP);
+  if (user.phone && user.phone.length > 0) {
+    const phoneP = document.createElement('p');
+    phoneP.textContent = 'Teléfono: ' + user.phone;
+    detailsDiv.appendChild(phoneP);
+  }
+  if (user.about && user.about.length > 0) {
+    const aboutP = document.createElement('p');
+    aboutP.textContent = user.about;
+    detailsDiv.appendChild(aboutP);
+  }
+  infoDiv.appendChild(img);
+  infoDiv.appendChild(detailsDiv);
+  // Construir enlace para compartir con clientes
+  const linkInput = document.getElementById('providerLink');
+  if (linkInput) {
+    const baseUrl = window.location.href.replace(/\/[^/]*$/, '/');
+    linkInput.value = baseUrl + 'portal.html?provider=' + encodeURIComponent(user.username) + '&ref=' + encodeURIComponent(user.referralCode);
+  }
 }
 
 // Marcar reserva como completada (proveedor)
@@ -265,6 +391,25 @@ function markBookingCompleted(id) {
   loadCleanerBookings();
   if (currentUser.role === 'admin') {
     loadAdminBookings();
+  }
+}
+
+// Establecer la propuesta de precio del proveedor para una reserva
+function setProviderOffer(id, price) {
+  const bookings = getBookings();
+  const booking = bookings.find((b) => b.id === id);
+  if (!booking) return;
+  booking.providerOffer = price;
+  setBookings(bookings);
+  // Recargar vistas donde se muestre el cambio
+  if (currentUser) {
+    if (currentUser.role === 'cleaner') {
+      loadCleanerBookings();
+    } else if (currentUser.role === 'customer') {
+      loadCustomerBookings();
+    } else if (currentUser.role === 'admin') {
+      loadAdminBookings();
+    }
   }
 }
 
@@ -306,7 +451,9 @@ function loadAdminBookings() {
     const row = document.createElement('tr');
     const service = services.find((s) => s.id === b.serviceId);
     const priceDisplay = b.price !== undefined ? `$${b.price.toFixed(2)}` : '';
-    row.innerHTML = `\n      <td>${b.id}</td>\n      <td>${b.customer}</td>\n      <td>${service ? service.name : ''}</td>\n      <td>${b.date}</td>\n      <td>${b.time}</td>\n      <td>${b.cleaner ? b.cleaner : '---'}</td>\n      <td>${b.status}</td>\n      <td>${priceDisplay}</td>\n      <td>${b.paymentStatus === 'pagado' ? 'Pagado' : 'Pendiente'}</td>\n    `;
+    const customerPriceDisplay = b.customerPrice !== undefined && b.customerPrice !== null ? `$${parseFloat(b.customerPrice).toFixed(2)}` : '';
+    const providerPriceDisplay = b.providerOffer !== undefined && b.providerOffer !== null ? `$${parseFloat(b.providerOffer).toFixed(2)}` : '';
+    row.innerHTML = `\n      <td>${b.id}</td>\n      <td>${b.customer}</td>\n      <td>${service ? service.name : ''}</td>\n      <td>${b.date}</td>\n      <td>${b.time}</td>\n      <td>${b.cleaner ? b.cleaner : '---'}</td>\n      <td>${b.status}</td>\n      <td>${priceDisplay}</td>\n      <td>${customerPriceDisplay}</td>\n      <td>${providerPriceDisplay}</td>\n      <td>${b.paymentStatus === 'pagado' ? 'Pagado' : 'Pendiente'}</td>\n    `;
     // Selector para asignar proveedor
     const assignCell = document.createElement('td');
     const select = document.createElement('select');
@@ -361,4 +508,50 @@ window.onload = () => {
   document.getElementById('loginBtn').onclick = loginUser;
   document.getElementById('registerBtn').onclick = registerUser;
   document.getElementById('bookBtn').onclick = createBooking;
+  // Mostrar/ocultar campos de proveedor al seleccionar rol
+  const roleSelect = document.getElementById('regRole');
+  if (roleSelect) {
+    roleSelect.onchange = toggleProviderFields;
+    // Ejecutar una vez al cargar para establecer estado inicial
+    toggleProviderFields();
+  }
+  // Configurar botones de edición de perfil para proveedores
+  const editBtn = document.getElementById('editProfileBtn');
+  const editForm = document.getElementById('editProfileForm');
+  if (editBtn) {
+    editBtn.onclick = () => {
+      if (editForm.classList.contains('hidden')) {
+        // Prefill con datos actuales
+        if (currentUser && currentUser.role === 'cleaner') {
+          document.getElementById('providerCompanyName').value = currentUser.companyName || '';
+          document.getElementById('providerPhotoURL').value = currentUser.photoURL || '';
+          document.getElementById('providerPhone').value = currentUser.phone || '';
+          document.getElementById('providerAbout').value = currentUser.about || '';
+        }
+        editForm.classList.remove('hidden');
+      } else {
+        editForm.classList.add('hidden');
+      }
+    };
+  }
+  const saveBtn = document.getElementById('saveProfileBtn');
+  if (saveBtn) {
+    saveBtn.onclick = () => {
+      if (!currentUser || currentUser.role !== 'cleaner') return;
+      const users = getUsers();
+      const idx = users.findIndex((u) => u.username === currentUser.username);
+      if (idx >= 0) {
+        users[idx].companyName = document.getElementById('providerCompanyName').value.trim();
+        users[idx].photoURL = document.getElementById('providerPhotoURL').value.trim();
+        users[idx].phone = document.getElementById('providerPhone').value.trim();
+        users[idx].about = document.getElementById('providerAbout').value.trim();
+        setUsers(users);
+        // Actualizar currentUser en memoria
+        currentUser = users[idx];
+        loadProviderInfo();
+        editForm.classList.add('hidden');
+        alert('Perfil actualizado');
+      }
+    };
+  }
 };

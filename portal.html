@@ -71,6 +71,8 @@
     <main>
       <section>
         <h2>Reservar servicio</h2>
+        <!-- Información del proveedor (se mostrará cuando se acceda con parámetro provider) -->
+        <div id="portalProviderInfo" class="hidden" style="display:flex; align-items:center; gap:1rem; margin-bottom: 1rem;"></div>
         <label for="portalName">Nombre:</label>
         <input type="text" id="portalName" />
         <label for="portalService">Servicio:</label>
@@ -79,6 +81,29 @@
         <input type="date" id="portalDate" />
         <label for="portalTime">Hora:</label>
         <input type="time" id="portalTime" />
+        <label for="portalPrice">¿Cuánto estás dispuesto a pagar? ($):</label>
+        <input type="number" id="portalPrice" min="1" step="0.01" />
+        <label>Detalles de la casa:</label>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem;">
+          <div>
+            <label for="portalRooms">Habitaciones:</label>
+            <input type="number" id="portalRooms" min="0" value="0" />
+          </div>
+          <div>
+            <label for="portalBathrooms">Baños:</label>
+            <input type="number" id="portalBathrooms" min="0" value="0" />
+          </div>
+          <div>
+            <label for="portalLiving">Salas de estar:</label>
+            <input type="number" id="portalLiving" min="0" value="0" />
+          </div>
+          <div>
+            <label for="portalKitchens">Cocinas:</label>
+            <input type="number" id="portalKitchens" min="0" value="0" />
+          </div>
+        </div>
+        <label for="portalOther">Otros detalles (opcional):</label>
+        <textarea id="portalOther" rows="2"></textarea>
         <label for="portalReferral">Código de referido (opcional):</label>
         <input type="text" id="portalReferral" />
         <button id="portalBookBtn">Reservar</button>
@@ -99,13 +124,78 @@
           option.textContent = service.name + ' ($' + service.price + ')';
           select.appendChild(option);
         });
+        // Analizar parámetros de la URL para provider y ref
+        const params = new URLSearchParams(window.location.search);
+        const providerParam = params.get('provider');
+        const refParam = params.get('ref');
+        let selectedProvider = null;
+        // Mostrar info del proveedor si corresponde
+        if (providerParam) {
+          const providerUser = getUsers().find(function (u) {
+            return u.username === providerParam && u.role === 'cleaner';
+          });
+          if (providerUser) {
+            selectedProvider = providerUser.username;
+            const infoDiv = document.getElementById('portalProviderInfo');
+            if (infoDiv) {
+              infoDiv.classList.remove('hidden');
+              infoDiv.innerHTML = '';
+              const img = document.createElement('img');
+              img.src = providerUser.photoURL ? providerUser.photoURL : 'icon-192.png';
+              img.alt = 'Proveedor';
+              img.style.width = '70px';
+              img.style.height = '70px';
+              img.style.objectFit = 'cover';
+              img.style.borderRadius = '50%';
+              const detailsDiv = document.createElement('div');
+              const nameP = document.createElement('p');
+              nameP.textContent = providerUser.companyName && providerUser.companyName.length > 0 ? providerUser.companyName : providerUser.username;
+              nameP.style.fontWeight = 'bold';
+              detailsDiv.appendChild(nameP);
+              if (providerUser.about) {
+                const aboutP = document.createElement('p');
+                aboutP.textContent = providerUser.about;
+                detailsDiv.appendChild(aboutP);
+              }
+              if (providerUser.phone) {
+                const phoneP = document.createElement('p');
+                phoneP.textContent = 'Teléfono: ' + providerUser.phone;
+                detailsDiv.appendChild(phoneP);
+              }
+              infoDiv.appendChild(img);
+              infoDiv.appendChild(detailsDiv);
+            }
+          }
+        }
+        // Si hay parámetro de referido en la URL, prellenar y ocultar campo
+        if (refParam) {
+          const refInput = document.getElementById('portalReferral');
+          if (refInput) {
+            refInput.value = refParam;
+            refInput.style.display = 'none';
+            const refLabel = document.querySelector('label[for="portalReferral"]');
+            if (refLabel) refLabel.style.display = 'none';
+          }
+        }
         // Manejar reserva desde portal
         document.getElementById('portalBookBtn').onclick = function () {
           const name = document.getElementById('portalName').value.trim();
           const serviceId = parseInt(document.getElementById('portalService').value, 10);
           const date = document.getElementById('portalDate').value;
           const time = document.getElementById('portalTime').value;
-          const referralCode = document.getElementById('portalReferral').value.trim();
+          const priceOffered = parseFloat(document.getElementById('portalPrice').value || '0');
+          const rooms = parseInt(document.getElementById('portalRooms').value || '0');
+          const bathrooms = parseInt(document.getElementById('portalBathrooms').value || '0');
+          const living = parseInt(document.getElementById('portalLiving').value || '0');
+          const kitchens = parseInt(document.getElementById('portalKitchens').value || '0');
+          const other = (document.getElementById('portalOther').value || '').trim();
+          // Si refParam existe, usarlo; de lo contrario usar valor del campo
+          let referralCode = '';
+          if (refParam) {
+            referralCode = refParam;
+          } else {
+            referralCode = document.getElementById('portalReferral').value.trim();
+          }
           if (!name || !date || !time) {
             alert('Por favor completa todos los campos requeridos');
             return;
@@ -126,22 +216,22 @@
             users.push(user);
             setUsers(users);
           }
-          // Calcular precio y aplicar descuento
-          let price = 0;
+          // Calcular precio base del servicio y aplicar descuento si tiene créditos
+          let finalPrice = 0;
           let discountApplied = 0;
           const serviceObj = services.find(function (s) {
             return s.id === serviceId;
           });
-          if (serviceObj) price = serviceObj.price;
-          // Aplicar descuento si el usuario tiene créditos
+          if (serviceObj) finalPrice = serviceObj.price;
+          // Aplicar cupón de descuento (30%) si el usuario tiene créditos
           const userIndex = users.findIndex(function (u) {
             return u.username === name;
           });
           if (userIndex >= 0) {
             const credits = users[userIndex].discountCredits || 0;
             if (credits > 0) {
-              discountApplied = 0.1;
-              price = price - price * discountApplied;
+              discountApplied = 0.3;
+              finalPrice = finalPrice - finalPrice * discountApplied;
               users[userIndex].discountCredits = credits - 1;
               setUsers(users);
             }
@@ -149,39 +239,39 @@
           // Procesar código de referido ingresado
           let referralUsed = null;
           if (referralCode && referralCode !== user.referralCode) {
-            const refUsers = getUsers();
-            const refIndex = refUsers.findIndex(function (u) {
+            const allUsers = getUsers();
+            const refIndex = allUsers.findIndex(function (u) {
               return u.referralCode === referralCode;
             });
             if (refIndex >= 0) {
-              refUsers[refIndex].discountCredits = (refUsers[refIndex].discountCredits || 0) + 1;
+              allUsers[refIndex].discountCredits = (allUsers[refIndex].discountCredits || 0) + 1;
               referralUsed = referralCode;
-              setUsers(refUsers);
-              alert(
-                'El usuario con código ' +
-                  referralCode +
-                  ' ha ganado un descuento para su próxima cita.'
-              );
+              setUsers(allUsers);
+              alert('El usuario con código ' + referralCode + ' ha ganado un cupón de 30% de descuento para su próxima cita.');
             }
           }
-          // Asignar proveedor con menos reservas
+          // Asignar proveedor: usar el parámetro si está definido, en caso contrario al de menos reservas
           const bookings = getBookings();
-          const providers = getUsers().filter(function (u) {
-            return u.role === 'cleaner';
-          });
           let assigned = null;
-          if (providers.length > 0) {
-            const bookingsByProvider = {};
-            providers.forEach(function (p) {
-              bookingsByProvider[p.username] = bookings.filter(function (b) {
-                return b.cleaner === p.username;
-              }).length;
+          if (selectedProvider) {
+            assigned = selectedProvider;
+          } else {
+            const providers = getUsers().filter(function (u) {
+              return u.role === 'cleaner';
             });
-            assigned = providers.reduce(function (prev, curr) {
-              return bookingsByProvider[curr.username] < bookingsByProvider[prev.username]
-                ? curr
-                : prev;
-            }, providers[0]).username;
+            if (providers.length > 0) {
+              const bookingsByProvider = {};
+              providers.forEach(function (p) {
+                bookingsByProvider[p.username] = bookings.filter(function (b) {
+                  return b.cleaner === p.username;
+                }).length;
+              });
+              assigned = providers.reduce(function (prev, curr) {
+                return bookingsByProvider[curr.username] < bookingsByProvider[prev.username]
+                  ? curr
+                  : prev;
+              }, providers[0]).username;
+            }
           }
           const id = bookings.length > 0 ? Math.max.apply(null, bookings.map(function (b) { return b.id; })) + 1 : 1;
           bookings.push({
@@ -193,23 +283,30 @@
             time: time,
             status: 'pendiente',
             paymentStatus: 'pendiente',
-            price: price,
+            price: finalPrice,
             discountApplied: discountApplied,
             referralUsed: referralUsed,
+            customerPrice: isNaN(priceOffered) ? null : priceOffered,
+            houseDetails: {
+              rooms: rooms,
+              bathrooms: bathrooms,
+              livingRooms: living,
+              kitchens: kitchens,
+              other: other,
+            },
+            providerOffer: null,
           });
           setBookings(bookings);
           // Mostrar resultado
           const resultDiv = document.getElementById('portalResult');
           resultDiv.innerHTML =
             '<p>¡Reserva creada con éxito!</p>' +
-            '<p>Tu precio es $' +
-            price.toFixed(2) +
-            '.</p>' +
-            '<p>Tu código de referido es: ' +
-            user.referralCode +
-            '.</p>';
-          // Limpiar formulario
-          document.getElementById('portalReferral').value = '';
+            '<p>El precio base del servicio es $' + finalPrice.toFixed(2) + '.</p>' +
+            '<p>Tu código de referido es: ' + user.referralCode + '.</p>';
+          // Limpiar campos de entrada que no son persistentes
+          if (!refParam) {
+            document.getElementById('portalReferral').value = '';
+          }
         };
       };
     </script>
