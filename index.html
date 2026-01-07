@@ -125,8 +125,9 @@
           <div id="providerExtraFields" class="hidden" style="margin-top: 1rem;">
             <label for="regCompanyName">Nombre de la compañía:</label>
             <input type="text" id="regCompanyName" />
-            <label for="regPhotoURL">URL de foto o logo:</label>
-            <input type="text" id="regPhotoURL" />
+            <label for="regPhotoFile">Foto de perfil (opcional):</label>
+            <!-- Permitir al proveedor cargar una imagen desde su dispositivo -->
+            <input type="file" id="regPhotoFile" accept="image/*" />
             <label for="regPhone">Teléfono de contacto:</label>
             <input type="text" id="regPhone" />
             <label for="regAbout">Descripción de la compañía:</label>
@@ -226,8 +227,9 @@
         <div id="editProfileForm" class="hidden" style="margin-top: 1rem;">
           <label for="providerCompanyName">Nombre de la compañía:</label>
           <input type="text" id="providerCompanyName" />
-          <label for="providerPhotoURL">URL de foto o logo:</label>
-          <input type="text" id="providerPhotoURL" />
+          <label for="providerPhotoFile">Foto de perfil (opcional):</label>
+          <!-- Permitir al proveedor actualizar su foto desde su dispositivo -->
+          <input type="file" id="providerPhotoFile" accept="image/*" />
           <label for="providerPhone">Teléfono:</label>
           <input type="text" id="providerPhone" />
           <label for="providerAbout">Descripción:</label>

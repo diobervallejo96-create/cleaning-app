@@ -121,7 +121,8 @@
         services.forEach(function (service) {
           const option = document.createElement('option');
           option.value = service.id;
-          option.textContent = service.name + ' ($' + service.price + ')';
+          // Mostrar solo el nombre del servicio sin precio en el desplegable
+          option.textContent = service.name;
           select.appendChild(option);
         });
         // Analizar parámetros de la URL para provider y ref
@@ -141,7 +142,12 @@
               infoDiv.classList.remove('hidden');
               infoDiv.innerHTML = '';
               const img = document.createElement('img');
-              img.src = providerUser.photoURL ? providerUser.photoURL : 'icon-192.png';
+              // Priorizar la imagen cargada (photoData) y luego la URL, si existe
+              img.src = providerUser.photoData
+                ? providerUser.photoData
+                : providerUser.photoURL
+                ? providerUser.photoURL
+                : 'icon-192.png';
               img.alt = 'Proveedor';
               img.style.width = '70px';
               img.style.height = '70px';
@@ -297,11 +303,10 @@
             providerOffer: null,
           });
           setBookings(bookings);
-          // Mostrar resultado
+          // Mostrar resultado: no se muestra el precio base para no confundir al cliente.
           const resultDiv = document.getElementById('portalResult');
           resultDiv.innerHTML =
             '<p>¡Reserva creada con éxito!</p>' +
-            '<p>El precio base del servicio es $' + finalPrice.toFixed(2) + '.</p>' +
             '<p>Tu código de referido es: ' + user.referralCode + '.</p>';
           // Limpiar campos de entrada que no son persistentes
           if (!refParam) {

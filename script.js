@@ -1,10 +1,13 @@
 // script.js: lógicas de la aplicación de limpieza usando localStorage
 
 // Definición de servicios disponibles
+// Definición de servicios disponibles.
+// Se incluye un precio base para cálculos internos (ej. cupones), pero no se muestra al usuario.
 const services = [
-  { id: 1, name: 'Limpieza de casa', price: 50 },
+  { id: 1, name: 'Limpieza básica', price: 50 },
   { id: 2, name: 'Limpieza de oficina', price: 80 },
-  { id: 3, name: 'Limpieza comercial', price: 120 }
+  { id: 3, name: 'Limpieza comercial', price: 120 },
+  { id: 4, name: 'Limpieza profunda', price: 100 }
 ];
 
 // Estado de la aplicación
@@ -89,14 +92,28 @@ function registerUser() {
   // Si el registro es para un proveedor, guardar datos de perfil
   if (role === 'cleaner') {
     const companyName = document.getElementById('regCompanyName').value.trim();
-    const photoURL = document.getElementById('regPhotoURL').value.trim();
     const phone = document.getElementById('regPhone').value.trim();
     const about = document.getElementById('regAbout').value.trim();
     newUser.companyName = companyName;
-    newUser.photoURL = photoURL;
     newUser.phone = phone;
     newUser.about = about;
+    // Obtener el archivo de imagen cargado
+    const fileInput = document.getElementById('regPhotoFile');
+    const file = fileInput && fileInput.files ? fileInput.files[0] : null;
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function () {
+        newUser.photoData = reader.result;
+        users.push(newUser);
+        setUsers(users);
+        alert('Registro exitoso. Ahora inicia sesión.');
+        showLogin();
+      };
+      reader.readAsDataURL(file);
+      return; // esperar a que se complete la carga de la imagen
+    }
   }
+  // Registrar usuario cuando no hay imagen o no es proveedor
   users.push(newUser);
   setUsers(users);
   alert('Registro exitoso. Ahora inicia sesión.');
@@ -131,7 +148,8 @@ function populateServiceSelect() {
   services.forEach((service) => {
     const option = document.createElement('option');
     option.value = service.id;
-    option.textContent = `${service.name} ($${service.price})`;
+    // Mostrar solo el nombre del servicio sin precio
+    option.textContent = service.name;
     select.appendChild(option);
   });
 }
@@ -347,9 +365,13 @@ function loadProviderInfo() {
   if (!infoDiv || !currentUser || currentUser.role !== 'cleaner') return;
   infoDiv.innerHTML = '';
   const user = currentUser;
-  // Crear imagen de perfil
+  // Crear imagen de perfil. Se prioriza la imagen cargada (photoData) y luego la URL si existe.
   const img = document.createElement('img');
-  img.src = user.photoURL ? user.photoURL : 'icon-192.png';
+  img.src = user.photoData
+    ? user.photoData
+    : user.photoURL
+    ? user.photoURL
+    : 'icon-192.png';
   img.alt = 'Foto de proveedor';
   img.style.width = '80px';
   img.style.height = '80px';
@@ -524,7 +546,6 @@ window.onload = () => {
         // Prefill con datos actuales
         if (currentUser && currentUser.role === 'cleaner') {
           document.getElementById('providerCompanyName').value = currentUser.companyName || '';
-          document.getElementById('providerPhotoURL').value = currentUser.photoURL || '';
           document.getElementById('providerPhone').value = currentUser.phone || '';
           document.getElementById('providerAbout').value = currentUser.about || '';
         }
@@ -541,16 +562,32 @@ window.onload = () => {
       const users = getUsers();
       const idx = users.findIndex((u) => u.username === currentUser.username);
       if (idx >= 0) {
+        // Actualizar información textual
         users[idx].companyName = document.getElementById('providerCompanyName').value.trim();
-        users[idx].photoURL = document.getElementById('providerPhotoURL').value.trim();
         users[idx].phone = document.getElementById('providerPhone').value.trim();
         users[idx].about = document.getElementById('providerAbout').value.trim();
-        setUsers(users);
-        // Actualizar currentUser en memoria
-        currentUser = users[idx];
-        loadProviderInfo();
-        editForm.classList.add('hidden');
-        alert('Perfil actualizado');
+        // Procesar archivo de imagen si se ha cargado uno nuevo
+        const fileInput = document.getElementById('providerPhotoFile');
+        const file = fileInput && fileInput.files ? fileInput.files[0] : null;
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function () {
+            users[idx].photoData = reader.result;
+            setUsers(users);
+            currentUser = users[idx];
+            loadProviderInfo();
+            editForm.classList.add('hidden');
+            alert('Perfil actualizado');
+          };
+          reader.readAsDataURL(file);
+        } else {
+          // No se cambió la imagen
+          setUsers(users);
+          currentUser = users[idx];
+          loadProviderInfo();
+          editForm.classList.add('hidden');
+          alert('Perfil actualizado');
+        }
       }
     };
   }
