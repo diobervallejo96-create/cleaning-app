@@ -4,7 +4,10 @@
 // old one. Without this change, browsers could continue serving outdated
 // resources such as index.html and script.js, preventing new features from
 // appearing.
-const CACHE_NAME = 'limpieza-app-v2';
+// Actualizar la versión de la caché para garantizar que los navegadores recuperen los últimos
+// archivos modificados (por ejemplo, index.html, script.js y portal.html). Cuando se
+// modifica este valor, el service worker instalará un nuevo caché y descartará el anterior.
+const CACHE_NAME = 'limpieza-app-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
