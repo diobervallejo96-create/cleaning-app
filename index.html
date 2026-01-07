@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aplicación de Compañía de Limpieza</title>
+    <!-- Manifest for PWA -->
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+    <meta name="theme-color" content="#3b82f6" />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background: #f5f7fa;
+      }
+
+      header {
+        background: #3b82f6;
+        color: #ffffff;
+        padding: 1rem 2rem;
+        text-align: center;
+      }
+
+      main {
+        margin: 0 auto;
+        max-width: 900px;
+        padding: 2rem;
+      }
+
+      section {
+        margin-bottom: 2rem;
+        padding: 1rem;
+        background: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      h2 {
+        margin-top: 0;
+      }
+
+      label {
+        display: block;
+        margin-top: 0.5rem;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 0.5rem;
+        margin-top: 0.25rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+
+      button {
+        margin-top: 1rem;
+        padding: 0.5rem 1rem;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #2563eb;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+      }
+      th,
+      td {
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        text-align: left;
+      }
+      th {
+        background: #e5e7eb;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <img src="banner.png" alt="Aplicación de Compañía de Limpieza" style="width: 100%; max-height: 220px; object-fit: cover; border-bottom: 2px solid #e5e7eb;" />
+      <h1 style="margin: 1rem 0; color: #3b82f6; text-align: center;">Aplicación de Compañía de Limpieza</h1>
+    </header>
+    <main>
+      <!-- Login/Registro -->
+      <section id="authSection">
+        <h2>Acceso / Registro</h2>
+        <div id="loginForm">
+          <h3>Iniciar sesión</h3>
+          <label for="loginUsername">Usuario:</label>
+          <input type="text" id="loginUsername" />
+          <label for="loginPassword">Contraseña:</label>
+          <input type="password" id="loginPassword" />
+          <button id="loginBtn">Iniciar sesión</button>
+          <p>
+            ¿No tienes cuenta?
+            <a href="#" onclick="showRegister()">Registrarse</a>
+          </p>
+        </div>
+        <div id="registerForm" class="hidden">
+          <h3>Registro</h3>
+          <label for="regUsername">Usuario:</label>
+          <input type="text" id="regUsername" />
+          <label for="regPassword">Contraseña:</label>
+          <input type="password" id="regPassword" />
+          <label for="regRole">Rol:</label>
+          <select id="regRole">
+            <option value="customer">Cliente</option>
+            <option value="cleaner">Proveedor</option>
+          </select>
+          <button id="registerBtn">Registrarse</button>
+          <p>
+            ¿Ya tienes cuenta?
+            <a href="#" onclick="showLogin()">Iniciar sesión</a>
+          </p>
+        </div>
+      </section>
+
+      <!-- Sección para clientes -->
+      <section id="customerSection" class="hidden">
+        <h2>Bienvenido, <span id="customerName"></span></h2>
+        <h3>Reservar servicio</h3>
+        <label for="serviceSelect">Servicio:</label>
+        <select id="serviceSelect"></select>
+        <label for="bookingDate">Fecha:</label>
+        <input type="date" id="bookingDate" />
+        <label for="bookingTime">Hora:</label>
+        <input type="time" id="bookingTime" />
+        <button id="bookBtn">Reservar</button>
+        <h3>Mis reservaciones</h3>
+        <table id="customerBookings">
+          <thead>
+            <tr>
+              <th>Servicio</th>
+              <th>Fecha</th>
+              <th>Hora</th>
+              <th>Estado</th>
+              <th>Proveedor</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <!-- Sección para proveedores -->
+      <section id="cleanerSection" class="hidden">
+        <h2>Panel de Proveedor</h2>
+        <h3>Reservaciones asignadas</h3>
+        <table id="cleanerBookings">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Servicio</th>
+              <th>Fecha</th>
+              <th>Hora</th>
+              <th>Estado</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <!-- Sección para administrador -->
+      <section id="adminSection" class="hidden">
+        <h2>Panel de Administración</h2>
+        <h3>Reservaciones</h3>
+        <table id="adminBookings">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Cliente</th>
+              <th>Servicio</th>
+              <th>Fecha</th>
+              <th>Hora</th>
+              <th>Proveedor</th>
+              <th>Estado</th>
+              <th>Asignar proveedor</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </main>
+    <script src="script.js"></script>
+    <!-- Registro del service worker para PWA -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('service-worker.js').catch(function (error) {
+            console.error('Fallo al registrar el service worker:', error);
+          });
+        });
+      }
+    </script>
+  </body>
+</html>
