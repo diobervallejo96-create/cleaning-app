@@ -1,5 +1,10 @@
 // Service Worker para la aplicación de limpieza
-const CACHE_NAME = 'limpieza-app-v1';
+// Bump the cache name to force browsers to fetch the latest assets. When this
+// value changes, the service worker will install a new cache and ignore the
+// old one. Without this change, browsers could continue serving outdated
+// resources such as index.html and script.js, preventing new features from
+// appearing.
+const CACHE_NAME = 'limpieza-app-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
