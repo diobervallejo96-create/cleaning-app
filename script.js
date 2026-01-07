@@ -29,7 +29,13 @@ function ensureAdmin() {
   const users = getUsers();
   const adminExists = users.some((u) => u.username === 'admin');
   if (!adminExists) {
-    users.push({ username: 'admin', password: 'admin', role: 'admin' });
+    users.push({
+      username: 'admin',
+      password: 'admin',
+      role: 'admin',
+      referralCode: 'admin',
+      discountCredits: 0,
+    });
     setUsers(users);
   }
 }
@@ -58,7 +64,9 @@ function registerUser() {
     alert('El usuario ya existe');
     return;
   }
-  users.push({ username, password, role });
+  // Asignar un código de referido único utilizando el nombre de usuario
+  const referralCode = username;
+  users.push({ username, password, role, referralCode, discountCredits: 0 });
   setUsers(users);
   alert('Registro exitoso. Ahora inicia sesión.');
   showLogin();
@@ -101,6 +109,22 @@ function populateServiceSelect() {
 function showCustomerSection() {
   document.getElementById('customerSection').classList.remove('hidden');
   document.getElementById('customerName').textContent = currentUser.username;
+  // Mostrar código de referido del usuario
+  const referralInfo = document.getElementById('customerReferralInfo');
+  if (referralInfo) {
+    referralInfo.textContent = `Tu código de referido: ${currentUser.referralCode}`;
+  }
+  // Mostrar descuentos disponibles
+  const discountInfo = document.getElementById('customerDiscountInfo');
+  if (discountInfo) {
+    const credits = currentUser.discountCredits || 0;
+    if (credits > 0) {
+      discountInfo.textContent = `Tienes ${credits} descuento(s) del 10% para tu próxima cita.`;
+      discountInfo.classList.remove('hidden');
+    } else {
+      discountInfo.classList.add('hidden');
+    }
+  }
   populateServiceSelect();
   loadCustomerBookings();
 }
@@ -110,6 +134,8 @@ function createBooking() {
   const serviceId = parseInt(document.getElementById('serviceSelect').value, 10);
   const date = document.getElementById('bookingDate').value;
   const time = document.getElementById('bookingTime').value;
+  const referralInput = document.getElementById('referralInput');
+  const referralCodeEntered = referralInput ? referralInput.value.trim() : '';
   if (!date || !time) {
     alert('Selecciona fecha y hora');
     return;
@@ -129,13 +155,60 @@ function createBooking() {
       return bookingsByProvider[curr.username] < bookingsByProvider[prev.username] ? curr : prev;
     }, providers[0]).username;
   }
-  bookings.push({ id, serviceId, customer: currentUser.username, cleaner: assigned, date, time, status: 'pendiente' });
+  // Calcular precio base del servicio
+  const service = services.find((s) => s.id === serviceId);
+  let price = service ? service.price : 0;
+  let discountApplied = 0;
+  // Aplicar descuento si el usuario tiene créditos
+  let users = getUsers();
+  const userIndex = users.findIndex((u) => u.username === currentUser.username);
+  if (userIndex >= 0) {
+    const user = users[userIndex];
+    const credits = user.discountCredits || 0;
+    if (credits > 0) {
+      discountApplied = 0.1; // 10% descuento
+      price = price - price * discountApplied;
+      // Consumir un crédito
+      user.discountCredits = credits - 1;
+      users[userIndex] = user;
+      setUsers(users);
+    }
+  }
+  // Procesar código de referido ingresado
+  let referralUsed = null;
+  if (referralCodeEntered && referralCodeEntered !== currentUser.referralCode) {
+    const allUsers = getUsers();
+    const refIndex = allUsers.findIndex((u) => u.referralCode === referralCodeEntered);
+    if (refIndex >= 0) {
+      // Otorgar un crédito de descuento al referido
+      allUsers[refIndex].discountCredits = (allUsers[refIndex].discountCredits || 0) + 1;
+      referralUsed = referralCodeEntered;
+      setUsers(allUsers);
+      alert(`El usuario con código ${referralCodeEntered} ha ganado un descuento para su próxima cita.`);
+    }
+  }
+  bookings.push({
+    id,
+    serviceId,
+    customer: currentUser.username,
+    cleaner: assigned,
+    date,
+    time,
+    status: 'pendiente',
+    paymentStatus: 'pendiente',
+    price: price,
+    discountApplied: discountApplied,
+    referralUsed: referralUsed,
+  });
   setBookings(bookings);
   alert('Reserva creada');
   loadCustomerBookings();
-  if (currentUser.role === 'customer') {
-    loadCleanerBookings(); // actualizar vista de proveedores si corresponde
+  // Si hay interfaz de proveedor, actualizarla
+  if (currentUser.role === 'cleaner') {
+    loadCleanerBookings();
   }
+  // Actualizar info de descuentos y código
+  showCustomerSection();
 }
 
 // Cargar reservas de cliente
@@ -146,7 +219,8 @@ function loadCustomerBookings() {
   bookings.forEach((b) => {
     const service = services.find((s) => s.id === b.serviceId);
     const row = document.createElement('tr');
-    row.innerHTML = `\n      <td>${service ? service.name : ''}</td>\n      <td>${b.date}</td>\n      <td>${b.time}</td>\n      <td>${b.status}</td>\n      <td>${b.cleaner ? b.cleaner : 'No asignado'}</td>\n    `;
+    const priceDisplay = b.price !== undefined ? `$${b.price.toFixed(2)}` : '';
+    row.innerHTML = `\n      <td>${service ? service.name : ''}</td>\n      <td>${b.date}</td>\n      <td>${b.time}</td>\n      <td>${b.status}</td>\n      <td>${b.cleaner ? b.cleaner : 'No asignado'}</td>\n      <td>${priceDisplay}</td>\n      <td>${b.paymentStatus === 'pagado' ? 'Pagado' : 'Pendiente'}</td>\n    `;
     tbody.appendChild(row);
   });
 }
@@ -194,10 +268,32 @@ function markBookingCompleted(id) {
   }
 }
 
+// Marcar reserva como pagada (admin)
+function markBookingPaid(id) {
+  const bookings = getBookings();
+  const booking = bookings.find((b) => b.id === id);
+  if (!booking) return;
+  booking.paymentStatus = 'pagado';
+  setBookings(bookings);
+  loadAdminBookings();
+  // Actualizar vista cliente si corresponde
+  if (currentUser && currentUser.role === 'customer') {
+    loadCustomerBookings();
+  }
+}
+
 // Mostrar sección de administrador
 function showAdminSection() {
   document.getElementById('adminSection').classList.remove('hidden');
   loadAdminBookings();
+
+  // Establecer enlace de reserva para compartir
+  const linkInput = document.getElementById('bookingLink');
+  if (linkInput) {
+    // Construir URL de enlace. Si se aloja en GitHub Pages u otro, se toma la ruta base actual.
+    const basePath = window.location.href.replace(/\/[^/]*$/, '/');
+    linkInput.value = basePath + 'portal.html';
+  }
 }
 
 // Cargar reservas para administrador
@@ -209,7 +305,9 @@ function loadAdminBookings() {
   bookings.forEach((b) => {
     const row = document.createElement('tr');
     const service = services.find((s) => s.id === b.serviceId);
-    row.innerHTML = `\n      <td>${b.id}</td>\n      <td>${b.customer}</td>\n      <td>${service ? service.name : ''}</td>\n      <td>${b.date}</td>\n      <td>${b.time}</td>\n      <td>${b.cleaner ? b.cleaner : '---'}</td>\n      <td>${b.status}</td>\n    `;
+    const priceDisplay = b.price !== undefined ? `$${b.price.toFixed(2)}` : '';
+    row.innerHTML = `\n      <td>${b.id}</td>\n      <td>${b.customer}</td>\n      <td>${service ? service.name : ''}</td>\n      <td>${b.date}</td>\n      <td>${b.time}</td>\n      <td>${b.cleaner ? b.cleaner : '---'}</td>\n      <td>${b.status}</td>\n      <td>${priceDisplay}</td>\n      <td>${b.paymentStatus === 'pagado' ? 'Pagado' : 'Pendiente'}</td>\n    `;
+    // Selector para asignar proveedor
     const assignCell = document.createElement('td');
     const select = document.createElement('select');
     const emptyOption = document.createElement('option');
@@ -228,6 +326,17 @@ function loadAdminBookings() {
     };
     assignCell.appendChild(select);
     row.appendChild(assignCell);
+    // Acción de pago
+    const payCell = document.createElement('td');
+    if (b.paymentStatus !== 'pagado') {
+      const payBtn = document.createElement('button');
+      payBtn.textContent = 'Marcar pagado';
+      payBtn.onclick = () => {
+        markBookingPaid(b.id);
+      };
+      payCell.appendChild(payBtn);
+    }
+    row.appendChild(payCell);
     tbody.appendChild(row);
   });
 }

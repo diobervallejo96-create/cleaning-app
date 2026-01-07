@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reservar servicio de limpieza</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+    <meta name="theme-color" content="#3b82f6" />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background: #f5f7fa;
+      }
+      header {
+        background: #3b82f6;
+        color: #ffffff;
+        padding: 1rem 2rem;
+        text-align: center;
+      }
+      main {
+        margin: 0 auto;
+        max-width: 600px;
+        padding: 2rem;
+      }
+      section {
+        margin-bottom: 2rem;
+        padding: 1rem;
+        background: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      h2 {
+        margin-top: 0;
+      }
+      label {
+        display: block;
+        margin-top: 0.5rem;
+      }
+      input,
+      select {
+        width: 100%;
+        padding: 0.5rem;
+        margin-top: 0.25rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      button {
+        margin-top: 1rem;
+        padding: 0.5rem 1rem;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #2563eb;
+      }
+      #portalResult p {
+        margin: 0.5rem 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Reserva tu servicio de limpieza</h1>
+    </header>
+    <main>
+      <section>
+        <h2>Reservar servicio</h2>
+        <label for="portalName">Nombre:</label>
+        <input type="text" id="portalName" />
+        <label for="portalService">Servicio:</label>
+        <select id="portalService"></select>
+        <label for="portalDate">Fecha:</label>
+        <input type="date" id="portalDate" />
+        <label for="portalTime">Hora:</label>
+        <input type="time" id="portalTime" />
+        <label for="portalReferral">Código de referido (opcional):</label>
+        <input type="text" id="portalReferral" />
+        <button id="portalBookBtn">Reservar</button>
+        <div id="portalResult"></div>
+      </section>
+    </main>
+    <!-- Reutilizamos la lógica compartida -->
+    <script src="script.js"></script>
+    <script>
+      window.onload = function () {
+        // Asegurar que el administrador exista para inicializar la estructura
+        ensureAdmin();
+        // Poblar servicios en el formulario
+        const select = document.getElementById('portalService');
+        services.forEach(function (service) {
+          const option = document.createElement('option');
+          option.value = service.id;
+          option.textContent = service.name + ' ($' + service.price + ')';
+          select.appendChild(option);
+        });
+        // Manejar reserva desde portal
+        document.getElementById('portalBookBtn').onclick = function () {
+          const name = document.getElementById('portalName').value.trim();
+          const serviceId = parseInt(document.getElementById('portalService').value, 10);
+          const date = document.getElementById('portalDate').value;
+          const time = document.getElementById('portalTime').value;
+          const referralCode = document.getElementById('portalReferral').value.trim();
+          if (!name || !date || !time) {
+            alert('Por favor completa todos los campos requeridos');
+            return;
+          }
+          // Obtener o crear usuario
+          let users = getUsers();
+          let user = users.find(function (u) {
+            return u.username === name;
+          });
+          if (!user) {
+            user = {
+              username: name,
+              password: '',
+              role: 'customer',
+              referralCode: name,
+              discountCredits: 0,
+            };
+            users.push(user);
+            setUsers(users);
+          }
+          // Calcular precio y aplicar descuento
+          let price = 0;
+          let discountApplied = 0;
+          const serviceObj = services.find(function (s) {
+            return s.id === serviceId;
+          });
+          if (serviceObj) price = serviceObj.price;
+          // Aplicar descuento si el usuario tiene créditos
+          const userIndex = users.findIndex(function (u) {
+            return u.username === name;
+          });
+          if (userIndex >= 0) {
+            const credits = users[userIndex].discountCredits || 0;
+            if (credits > 0) {
+              discountApplied = 0.1;
+              price = price - price * discountApplied;
+              users[userIndex].discountCredits = credits - 1;
+              setUsers(users);
+            }
+          }
+          // Procesar código de referido ingresado
+          let referralUsed = null;
+          if (referralCode && referralCode !== user.referralCode) {
+            const refUsers = getUsers();
+            const refIndex = refUsers.findIndex(function (u) {
+              return u.referralCode === referralCode;
+            });
+            if (refIndex >= 0) {
+              refUsers[refIndex].discountCredits = (refUsers[refIndex].discountCredits || 0) + 1;
+              referralUsed = referralCode;
+              setUsers(refUsers);
+              alert(
+                'El usuario con código ' +
+                  referralCode +
+                  ' ha ganado un descuento para su próxima cita.'
+              );
+            }
+          }
+          // Asignar proveedor con menos reservas
+          const bookings = getBookings();
+          const providers = getUsers().filter(function (u) {
+            return u.role === 'cleaner';
+          });
+          let assigned = null;
+          if (providers.length > 0) {
+            const bookingsByProvider = {};
+            providers.forEach(function (p) {
+              bookingsByProvider[p.username] = bookings.filter(function (b) {
+                return b.cleaner === p.username;
+              }).length;
+            });
+            assigned = providers.reduce(function (prev, curr) {
+              return bookingsByProvider[curr.username] < bookingsByProvider[prev.username]
+                ? curr
+                : prev;
+            }, providers[0]).username;
+          }
+          const id = bookings.length > 0 ? Math.max.apply(null, bookings.map(function (b) { return b.id; })) + 1 : 1;
+          bookings.push({
+            id: id,
+            serviceId: serviceId,
+            customer: name,
+            cleaner: assigned,
+            date: date,
+            time: time,
+            status: 'pendiente',
+            paymentStatus: 'pendiente',
+            price: price,
+            discountApplied: discountApplied,
+            referralUsed: referralUsed,
+          });
+          setBookings(bookings);
+          // Mostrar resultado
+          const resultDiv = document.getElementById('portalResult');
+          resultDiv.innerHTML =
+            '<p>¡Reserva creada con éxito!</p>' +
+            '<p>Tu precio es $' +
+            price.toFixed(2) +
+            '.</p>' +
+            '<p>Tu código de referido es: ' +
+            user.referralCode +
+            '.</p>';
+          // Limpiar formulario
+          document.getElementById('portalReferral').value = '';
+        };
+      };
+    </script>
+  </body>
+</html>

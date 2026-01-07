@@ -132,6 +132,8 @@
       <!-- Sección para clientes -->
       <section id="customerSection" class="hidden">
         <h2>Bienvenido, <span id="customerName"></span></h2>
+        <p id="customerReferralInfo" style="font-weight: bold;"></p>
+        <p id="customerDiscountInfo" class="hidden" style="color: green;"></p>
         <h3>Reservar servicio</h3>
         <label for="serviceSelect">Servicio:</label>
         <select id="serviceSelect"></select>
@@ -139,6 +141,8 @@
         <input type="date" id="bookingDate" />
         <label for="bookingTime">Hora:</label>
         <input type="time" id="bookingTime" />
+        <label for="referralInput">Código de referido (opcional):</label>
+        <input type="text" id="referralInput" />
         <button id="bookBtn">Reservar</button>
         <h3>Mis reservaciones</h3>
         <table id="customerBookings">
@@ -149,6 +153,8 @@
               <th>Hora</th>
               <th>Estado</th>
               <th>Proveedor</th>
+              <th>Precio</th>
+              <th>Pago</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -188,11 +194,17 @@
               <th>Hora</th>
               <th>Proveedor</th>
               <th>Estado</th>
+              <th>Precio</th>
+              <th>Pago</th>
               <th>Asignar proveedor</th>
+              <th>Acción de pago</th>
             </tr>
           </thead>
           <tbody></tbody>
         </table>
+        <h3>Enlace de reserva para clientes</h3>
+        <p>Comparte este enlace con tus clientes para que programen sus citas:</p>
+        <input type="text" id="bookingLink" readonly style="width: 100%;" />
       </section>
     </main>
     <script src="script.js"></script>

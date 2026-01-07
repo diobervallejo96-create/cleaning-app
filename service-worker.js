@@ -3,6 +3,7 @@ const CACHE_NAME = 'limpieza-app-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
+  '/portal.html',
   '/script.js',
   '/manifest.json',
   '/banner.png',
